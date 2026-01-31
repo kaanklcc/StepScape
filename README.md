@@ -65,6 +65,12 @@ Bu yapıyı özellikle kodun okunabilir, test edilebilir ve sürdürülebilir ol
   <img src="https://github.com/kaanklcc/StepScape/blob/master/logs_screen.jpg" width="250"/>
 </p>
 
+ <p align="center">
+  <img src="https://raw.githubusercontent.com/kaanklcc/StepScape/master/gif1.gif" width="250"/>
+  <img src="https://github.com/kaanklcc/StepScape/blob/master/gif2.gif" width="250"/>
+  
+</p>
+
 ##  Kurulum
 
 1.  **Projeyi Klonlayın:**
