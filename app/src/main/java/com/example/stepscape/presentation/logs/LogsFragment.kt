@@ -1,60 +1,97 @@
 package com.example.stepscape.presentation.logs
 
 import android.os.Bundle
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import com.example.stepscape.R
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.stepscape.databinding.FragmentLogsBinding
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
-// TODO: Rename parameter arguments, choose names that match
-// the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-private const val ARG_PARAM1 = "param1"
-private const val ARG_PARAM2 = "param2"
-
-/**
- * A simple [Fragment] subclass.
- * Use the [LogsFragment.newInstance] factory method to
- * create an instance of this fragment.
- */
+@AndroidEntryPoint
 class LogsFragment : Fragment() {
-    // TODO: Rename and change types of parameters
-    private var param1: String? = null
-    private var param2: String? = null
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        arguments?.let {
-            param1 = it.getString(ARG_PARAM1)
-            param2 = it.getString(ARG_PARAM2)
+    private var _binding: FragmentLogsBinding? = null
+    private val binding get() = _binding!!
+    
+    private val viewModel: LogsViewModel by viewModels()
+    
+    private lateinit var logsAdapter: LogsAdapter
+    
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = FragmentLogsBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+    
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, windowInsets ->
+            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            
+            binding.headerLayout.setPadding(
+                binding.headerLayout.paddingLeft,
+                insets.top + 16,
+                binding.headerLayout.paddingRight,
+                binding.headerLayout.paddingBottom
+            )
+            
+            v.setPadding(0, 0, 0, insets.bottom)
+            
+            WindowInsetsCompat.CONSUMED
+        }
+        
+        setupRecyclerView()
+        setupClickListeners()
+        observeUiState()
+    }
+    
+    private fun setupRecyclerView() {
+        logsAdapter = LogsAdapter()
+        binding.rvLogs.apply {
+            adapter = logsAdapter
+            layoutManager = LinearLayoutManager(requireContext())
+            setHasFixedSize(true)
         }
     }
-
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
-        // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_logs, container, false)
+    
+    private fun setupClickListeners() {
+        binding.btnBack.setOnClickListener {
+            findNavController().navigateUp()
+        }
     }
-
-    companion object {
-        /**
-         * Use this factory method to create a new instance of
-         * this fragment using the provided parameters.
-         *
-         * @param param1 Parameter 1.
-         * @param param2 Parameter 2.
-         * @return A new instance of fragment LogsFragment.
-         */
-        // TODO: Rename and change types and number of parameters
-        @JvmStatic
-        fun newInstance(param1: String, param2: String) =
-            LogsFragment().apply {
-                arguments = Bundle().apply {
-                    putString(ARG_PARAM1, param1)
-                    putString(ARG_PARAM2, param2)
+    
+    private fun observeUiState() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.uiState.collectLatest { state ->
+                if (state.sessions.isEmpty()) {
+                    binding.tvEmptyState.visibility = View.VISIBLE
+                    binding.rvLogs.visibility = View.GONE
+                } else {
+                    binding.tvEmptyState.visibility = View.GONE
+                    binding.rvLogs.visibility = View.VISIBLE
+                    // Sort by most recent first and submit to adapter
+                    val sortedSessions = state.sessions.sortedByDescending { it.startTime }
+                    logsAdapter.submitList(sortedSessions)
                 }
             }
+        }
+    }
+    
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }
