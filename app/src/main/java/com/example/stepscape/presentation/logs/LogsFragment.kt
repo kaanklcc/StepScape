@@ -82,8 +82,8 @@ class LogsFragment : Fragment() {
                 } else {
                     binding.tvEmptyState.visibility = View.GONE
                     binding.rvLogs.visibility = View.VISIBLE
-                    // Sort by most recent first and submit to adapter
                     val sortedSessions = state.sessions.sortedByDescending { it.startTime }
+                    logsAdapter.currentUserName = state.userName
                     logsAdapter.submitList(sortedSessions)
                 }
             }

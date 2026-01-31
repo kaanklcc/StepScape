@@ -15,6 +15,8 @@ import java.util.TimeZone
 
 class LogsAdapter : ListAdapter<StepSession, LogsAdapter.LogViewHolder>(LogDiffCallback()) {
 
+    var currentUserName: String = ""
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LogViewHolder {
         val binding = ItemLogBinding.inflate(
             LayoutInflater.from(parent.context),
@@ -25,7 +27,7 @@ class LogsAdapter : ListAdapter<StepSession, LogsAdapter.LogViewHolder>(LogDiffC
     }
 
     override fun onBindViewHolder(holder: LogViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        holder.bind(getItem(position), currentUserName)
     }
 
     class LogViewHolder(
@@ -36,12 +38,12 @@ class LogsAdapter : ListAdapter<StepSession, LogsAdapter.LogViewHolder>(LogDiffC
             timeZone = TimeZone.getTimeZone("UTC")
         }
 
-        fun bind(session: StepSession) {
+        fun bind(session: StepSession, userName: String) {
             val timestamp = isoDateFormat.format(Date(session.startTime))
-            val userName = session.userId.ifEmpty { "Aurora" }
+            val displayUser = userName.ifEmpty { "User" }
             val syncStatus = if (session.syncedToFirebase) "Data synced to Firebase." else "Not synced."
             
-            val logEntry = "StepLog: $timestamp - User '$userName' took ${session.steps} steps. $syncStatus"
+            val logEntry = "StepLog: $timestamp - User '$displayUser' took ${session.steps} steps. $syncStatus"
             binding.tvLogEntry.text = logEntry
         }
     }
