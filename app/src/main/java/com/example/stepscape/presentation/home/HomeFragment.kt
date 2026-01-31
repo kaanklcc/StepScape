@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.activity.result.ActivityResultLauncher
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -34,6 +35,10 @@ class HomeFragment : Fragment() {
     
     private val viewModel: HomeViewModel by viewModels()
     
+    private lateinit var permissionLauncher: ActivityResultLauncher<Set<String>>
+    
+    private var hasRequestedPermission = false
+    
     private val periodTabs: List<View> by lazy {
         listOf(
             binding.tabDay,
@@ -42,6 +47,18 @@ class HomeFragment : Fragment() {
             binding.tab6Month,
             binding.tabYear
         )
+    }
+    
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        
+        permissionLauncher = registerForActivityResult(
+            viewModel.getPermissionContract()
+        ) { granted ->
+            if (granted.containsAll(viewModel.getPermissions())) {
+                viewModel.onPermissionsGranted()
+            }
+        }
     }
     
     override fun onCreateView(
@@ -98,7 +115,7 @@ class HomeFragment : Fragment() {
     
     private fun updateTabsUI(period: ChartPeriod) {
         periodTabs.forEach { tab ->
-            tab.setBackgroundResource(0) // Clear background drawable
+            tab.setBackgroundResource(0)
             (tab as? android.widget.TextView)?.setTextColor(
                 ContextCompat.getColor(requireContext(), R.color.text_primary)
             )
@@ -120,8 +137,18 @@ class HomeFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.uiState.collectLatest { state ->
                 updateUI(state)
+                
+                // İzin yoksa ve Health Connect mevcutsa izin iste (sadece 1 kez)
+                if (!state.hasPermissions && state.isHealthConnectAvailable && !state.isLoading && !hasRequestedPermission) {
+                    hasRequestedPermission = true
+                    requestHealthConnectPermissions()
+                }
             }
         }
+    }
+    
+    private fun requestHealthConnectPermissions() {
+        permissionLauncher.launch(viewModel.getPermissions())
     }
     
     private fun updateUI(state: HomeUiState) {
@@ -195,12 +222,14 @@ class HomeFragment : Fragment() {
             xAxis.apply {
                 position = XAxis.XAxisPosition.BOTTOM
                 setDrawGridLines(true)
-                gridColor = Color.parseColor("#E8E8E8")
-                gridLineWidth = 0.5f
+                gridColor = Color.parseColor("#E0E0E0")
+                gridLineWidth = 1f
+                enableGridDashedLine(8f, 4f, 0f)
                 textColor = ContextCompat.getColor(requireContext(), R.color.text_secondary)
-                textSize = 11f
+                textSize = 12f
                 granularity = 1f
                 setDrawAxisLine(false)
+                yOffset = 10f
             }
             
             axisLeft.apply {
@@ -210,15 +239,17 @@ class HomeFragment : Fragment() {
             axisRight.apply {
                 isEnabled = true
                 setDrawGridLines(true)
-                gridColor = Color.parseColor("#E8E8E8")
-                gridLineWidth = 0.5f
+                gridColor = Color.parseColor("#E0E0E0")
+                gridLineWidth = 1f
+                enableGridDashedLine(8f, 4f, 0f)
                 textColor = ContextCompat.getColor(requireContext(), R.color.text_secondary)
-                textSize = 11f
+                textSize = 12f
                 axisMinimum = 0f
                 setDrawAxisLine(false)
+                xOffset = 10f
             }
             
-            setExtraOffsets(8f, 8f, 8f, 8f)
+            setExtraOffsets(8f, 8f, 16f, 8f)
         }
     }
     
@@ -243,7 +274,7 @@ class HomeFragment : Fragment() {
         }
         
         val (yMax, labelCount) = when (period) {
-            ChartPeriod.DAY -> 200f to 5
+            ChartPeriod.DAY -> 150f to 4
             ChartPeriod.WEEK -> 10000f to 5
             ChartPeriod.MONTH -> 15000f to 4
             ChartPeriod.SIX_MONTH -> 100000f to 5
@@ -257,20 +288,17 @@ class HomeFragment : Fragment() {
         
         val dataSet = LineDataSet(entries, "Steps").apply {
             color = ContextCompat.getColor(requireContext(), R.color.chart_line)
-            lineWidth = 3f
-            setDrawCircles(true)
-            circleRadius = 4f
-            setCircleColor(ContextCompat.getColor(requireContext(), R.color.chart_line))
-            setDrawCircleHole(false)
+            lineWidth = 4f
+            setDrawCircles(false)
             setDrawValues(false)
             mode = LineDataSet.Mode.CUBIC_BEZIER
-            cubicIntensity = 0.3f
+            cubicIntensity = 0.2f
             setDrawFilled(false)
         }
         
         binding.lineChart.apply {
             data = LineData(dataSet)
-            xAxis.labelCount = minOf(labels.size, 7)
+            xAxis.labelCount = minOf(labels.size, 5)
             animateX(500)
             invalidate()
         }

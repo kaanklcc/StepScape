@@ -52,12 +52,10 @@ class HealthConnectManager @Inject constructor(
         return available
     }
 
-    // Health Connect güncellenmesi gerekiyor mu?
     fun needsUpdate(): Boolean {
         return getSdkStatus() == HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED
     }
 
-    // Play Store'a yönlendir (güncelleme için)
     fun openPlayStoreForUpdate() {
         val intent = Intent(Intent.ACTION_VIEW).apply {
             data = Uri.parse("market://details?id=com.google.android.apps.healthdata")
@@ -67,7 +65,6 @@ class HealthConnectManager @Inject constructor(
         context.startActivity(intent)
     }
 
-    // Client'ı al
     private fun getClient(): HealthConnectClient {
         if (healthConnectClient == null) {
             healthConnectClient = HealthConnectClient.getOrCreate(context)
@@ -76,7 +73,6 @@ class HealthConnectManager @Inject constructor(
         return healthConnectClient!!
     }
 
-    // İzinlerin verilip verilmediğini kontrol et
     suspend fun hasAllPermissions(): Boolean {
         return try {
             val granted = getClient().permissionController.getGrantedPermissions()
@@ -89,7 +85,6 @@ class HealthConnectManager @Inject constructor(
         }
     }
 
-    // Bugünün adım sayısını oku
     suspend fun getTodaySteps(): Long {
         Log.d(TAG, "Getting today's steps...")
         if (!isAvailable()) {
@@ -118,7 +113,6 @@ class HealthConnectManager @Inject constructor(
         }
     }
 
-    // Belirli tarih aralığındaki adımları oku
     suspend fun getStepsForDateRange(startDate: LocalDate, endDate: LocalDate): Map<LocalDate, Long> {
         Log.d(TAG, "Getting steps for range: $startDate to $endDate")
         if (!isAvailable()) return emptyMap()
@@ -136,7 +130,6 @@ class HealthConnectManager @Inject constructor(
                 )
             )
 
-            // Her gün için adımları topla
             response.records.forEach { record ->
                 val date = record.startTime.atZone(ZoneId.systemDefault()).toLocalDate()
                 result[date] = (result[date] ?: 0L) + record.count
@@ -150,7 +143,6 @@ class HealthConnectManager @Inject constructor(
         }
     }
 
-    // Son X günün adımlarını oku
     suspend fun getStepsForLastDays(days: Int): Map<LocalDate, Long> {
         Log.d(TAG, "Getting steps for last $days days")
         val endDate = LocalDate.now()
@@ -158,10 +150,7 @@ class HealthConnectManager @Inject constructor(
         return getStepsForDateRange(startDate, endDate)
     }
 
-    /**
-     * Bugünün adım session'larını ayrı ayrı oku.
-     * Her session: startTime, endTime, steps
-     */
+
     data class StepSessionData(
         val startTimeMillis: Long,
         val endTimeMillis: Long,
@@ -204,9 +193,6 @@ class HealthConnectManager @Inject constructor(
         }
     }
 
-    /**
-     * Son X günün adım session'larını oku.
-     */
     suspend fun getStepSessionsForLastDays(days: Int): List<StepSessionData> {
         Log.d(TAG, "Getting step sessions for last $days days...")
         if (!isAvailable()) return emptyList()
@@ -239,5 +225,34 @@ class HealthConnectManager @Inject constructor(
             emptyList()
         }
     }
-}
 
+    suspend fun getStepsGroupedByHour(): Map<Int, Long> {
+        Log.d(TAG, "Getting steps grouped by hour...")
+        if (!isAvailable()) return emptyMap()
+
+        return try {
+            val today = LocalDate.now()
+            val startOfDay = today.atStartOfDay(ZoneId.systemDefault()).toInstant()
+            val endOfDay = today.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()
+
+            val response = getClient().readRecords(
+                ReadRecordsRequest(
+                    recordType = StepsRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
+                )
+            )
+
+            val result = mutableMapOf<Int, Long>()
+            response.records.forEach { record ->
+                val hour = record.startTime.atZone(ZoneId.systemDefault()).hour
+                result[hour] = (result[hour] ?: 0L) + record.count
+            }
+            
+            Log.d(TAG, "Steps by hour: $result")
+            result
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting steps by hour: ${e.message}")
+            emptyMap()
+        }
+    }
+}

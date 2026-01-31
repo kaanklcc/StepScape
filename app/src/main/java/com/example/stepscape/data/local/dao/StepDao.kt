@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 
 /**
  * Uygulama için DAO interfacesi.
+ * Tüm sorgular userId parametresi ile kullanıcıya özel.
  */
 @Dao
 interface StepDao {
@@ -17,23 +18,23 @@ interface StepDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(stepRecord: StepRecord)
 
-    // Tüm kayıtları tarihe göre azalan sırada getir (Logs ekranı için)
-    @Query("SELECT * FROM step_records ORDER BY date DESC")
-    fun getAllRecords(): Flow<List<StepRecord>>
+    // Kullanıcının tüm kayıtlarını tarihe göre azalan sırada getir (Logs ekranı için)
+    @Query("SELECT * FROM step_records WHERE userId = :userId ORDER BY date DESC")
+    fun getAllRecordsByUser(userId: String): Flow<List<StepRecord>>
 
-    // Bugünün adım kaydını getir
-    @Query("SELECT * FROM step_records WHERE date = :date LIMIT 1")
-    suspend fun getRecordByDate(date: Long): StepRecord?
+    // Kullanıcının belirli bir günün adım kaydını getir
+    @Query("SELECT * FROM step_records WHERE userId = :userId AND date = :date LIMIT 1")
+    suspend fun getRecordByUserAndDate(userId: String, date: Long): StepRecord?
 
-    // Senkronize edilmemiş kayıtları getir
-    @Query("SELECT * FROM step_records WHERE syncedToFirebase = 0")
-    suspend fun getUnsyncedRecords(): List<StepRecord>
+    // Kullanıcının senkronize edilmemiş kayıtlarını getir
+    @Query("SELECT * FROM step_records WHERE userId = :userId AND syncedToFirebase = 0")
+    suspend fun getUnsyncedRecordsByUser(userId: String): List<StepRecord>
 
-    // Haftalık kayıtları getir
-    @Query("SELECT * FROM step_records WHERE date >= :startDate ORDER BY date ASC")
-    fun getRecordsFromDate(startDate: Long): Flow<List<StepRecord>>
+    // Kullanıcının belirli bir tarihten itibaren kayıtlarını getir
+    @Query("SELECT * FROM step_records WHERE userId = :userId AND date >= :startDate ORDER BY date ASC")
+    fun getRecordsFromDateByUser(userId: String, startDate: Long): Flow<List<StepRecord>>
 
     // Kaydı senkronize edildi olarak işaretle
-    @Query("UPDATE step_records SET syncedToFirebase = 1 WHERE date = :date")
-    suspend fun markAsSynced(date: Long)
+    @Query("UPDATE step_records SET syncedToFirebase = 1 WHERE userId = :userId AND date = :date")
+    suspend fun markAsSynced(userId: String, date: Long)
 }
