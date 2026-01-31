@@ -31,7 +31,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Home"
-                android:textSize="22sp"
+                android:textSize="20sp"
                 android:textColor="@color/black"
                 android:textStyle="bold"
                 android:fontFamily="sans-serif-medium"
@@ -42,9 +42,9 @@
             <TextView
                 android:id="@+id/btnLogs"
                 android:layout_width="80dp"
-                android:layout_height="32dp"
+                android:layout_height="24dp"
                 android:text="Logs"
-                android:textSize="16sp"
+                android:textSize="14sp"
                 android:textColor="@color/black"
                 android:gravity="center"
                 android:background="@drawable/button_logs"
@@ -62,7 +62,7 @@
             android:layout_marginHorizontal="20dp"
             android:layout_marginTop="16dp"
             android:background="@drawable/progress_card_background"
-            android:paddingTop="16dp"
+            android:paddingTop="4dp"
             android:paddingBottom="20dp"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
@@ -82,6 +82,7 @@
                     android:background="@drawable/circular_progress_background" />
 
                 <com.example.stepscape.presentation.home.CircularProgressView
+
                     android:id="@+id/circularProgress"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent" />
@@ -124,7 +125,7 @@
                 android:layout_marginTop="12dp"
                 android:layout_marginHorizontal="24dp"
                 android:text="You're very close to your goal,\nso keep pushing forward."
-                android:textSize="16sp"
+                android:textSize="14sp"
                 android:textColor="@color/text_motivation"
                 android:gravity="center"
                 android:lineSpacingMultiplier="1.4"

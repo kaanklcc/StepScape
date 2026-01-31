@@ -3,8 +3,8 @@
     <string name="hello_blank_fragment">Hello blank fragment</string>
     
     <string name="login_title">StepScape</string>
-    <string name="login_subtitle">Track your daily steps</string>
-    <string name="sign_in_with_google">Sign in with Google</string>
+    <string name="login_subtitle">Health Data That\nActually Makes Sense</string>
+    <string name="sign_in_with_google">Continue with Google</string>
     
     <string name="default_web_client_id">903089875152-6df91de3rlev0n2d97lut090i5kjv2b4.apps.googleusercontent.com</string>
 </resources>
