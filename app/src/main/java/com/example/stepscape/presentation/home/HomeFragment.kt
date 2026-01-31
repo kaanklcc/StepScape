@@ -115,7 +115,7 @@ class HomeFragment : Fragment() {
     
     private fun updateTabsUI(period: ChartPeriod) {
         periodTabs.forEach { tab ->
-            tab.setBackgroundResource(0)
+            tab.background = null
             (tab as? android.widget.TextView)?.setTextColor(
                 ContextCompat.getColor(requireContext(), R.color.text_primary)
             )

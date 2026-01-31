@@ -6,5 +6,7 @@
     <string name="login_subtitle">Health Data That\nActually Makes Sense</string>
     <string name="sign_in_with_google">Continue with Google</string>
     
-    <string name="default_web_client_id">903089875152-6df91de3rlev0n2d97lut090i5kjv2b4.apps.googleusercontent.com</string>
+    <!-- TODO: Replace with your Web Client ID from Firebase Console -->
+    <!-- See SETUP.md for instructions on how to get this value -->
+    <string name="default_web_client_id">YOUR_WEB_CLIENT_ID.apps.googleusercontent.com</string>
 </resources>
