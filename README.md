@@ -56,6 +56,15 @@ Bu yapıyı özellikle kodun okunabilir, test edilebilir ve sürdürülebilir ol
 - Grafik verisi kısıtları
 - Google Fit üzerinden aylık, 6 aylık ve yıllık filtrelenmiş verileri doğrudan alamadığım için bu verileri grafikte göstermek istediğim gibi mümkün olmadı.
 
+  
+## 📸 Uygulama Görselleri
+
+ <p align="center">
+  <img src="https://github.com/kaanklcc/StepScape/blob/master/login_screen.jpg" width="250"/>
+  <img src="https://github.com/kaanklcc/StepScape/blob/master/main_screen.jpg" width="250"/>
+  <img src="https://github.com/kaanklcc/StepScape/blob/master/logs_screen.jpg" width="250"/>
+</p>
+
 ##  Kurulum
 
 1.  **Projeyi Klonlayın:**
