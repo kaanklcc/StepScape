@@ -34,8 +34,6 @@ class HomeFragment : Fragment() {
     
     private val viewModel: HomeViewModel by viewModels()
     
-    private var selectedPeriod = Period.DAY
-    
     private val periodTabs: List<View> by lazy {
         listOf(
             binding.tabDay,
@@ -60,24 +58,25 @@ class HomeFragment : Fragment() {
         
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, windowInsets ->
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(0, 0, 0, 0)
+            
             val headerView = binding.root.findViewById<View>(
-                resources.getIdentifier("tvTitle", "id", requireContext().packageName)
-            ).parent as? View
+                resources.getIdentifier("headerLayout", "id", requireContext().packageName)
+            )
             headerView?.setPadding(
                 headerView.paddingLeft,
                 insets.top + 16,
                 headerView.paddingRight,
                 headerView.paddingBottom
             )
+            
+            v.setPadding(0, 0, 0, insets.bottom)
+            
             WindowInsetsCompat.CONSUMED
         }
         
         setupChart()
         setupClickListeners()
         observeUiState()
-        
-        selectPeriod(Period.DAY)
     }
     
     private fun setupClickListeners() {
@@ -85,42 +84,32 @@ class HomeFragment : Fragment() {
             findNavController().navigate(R.id.action_home_to_logs)
         }
         
-        binding.tabDay.setOnClickListener { selectPeriod(Period.DAY) }
-        binding.tabWeek.setOnClickListener { selectPeriod(Period.WEEK) }
-        binding.tabMonth.setOnClickListener { selectPeriod(Period.MONTH) }
-        binding.tab6Month.setOnClickListener { selectPeriod(Period.SIX_MONTH) }
-        binding.tabYear.setOnClickListener { selectPeriod(Period.YEAR) }
+        binding.tabDay.setOnClickListener { selectPeriod(ChartPeriod.DAY) }
+        binding.tabWeek.setOnClickListener { selectPeriod(ChartPeriod.WEEK) }
+        binding.tabMonth.setOnClickListener { selectPeriod(ChartPeriod.MONTH) }
+        binding.tab6Month.setOnClickListener { selectPeriod(ChartPeriod.SIX_MONTH) }
+        binding.tabYear.setOnClickListener { selectPeriod(ChartPeriod.YEAR) }
     }
     
-    private fun selectPeriod(period: Period) {
-        selectedPeriod = period
-        updateTabsUI()
-        
-        val days = when (period) {
-            Period.DAY -> 1
-            Period.WEEK -> 7
-            Period.MONTH -> 30
-            Period.SIX_MONTH -> 180
-            Period.YEAR -> 365
-        }
-        
-        viewModel.loadChartData(days)
+    private fun selectPeriod(period: ChartPeriod) {
+        updateTabsUI(period)
+        viewModel.onPeriodSelected(period)
     }
     
-    private fun updateTabsUI() {
+    private fun updateTabsUI(period: ChartPeriod) {
         periodTabs.forEach { tab ->
-            tab.setBackgroundColor(Color.TRANSPARENT)
+            tab.setBackgroundResource(0) // Clear background drawable
             (tab as? android.widget.TextView)?.setTextColor(
                 ContextCompat.getColor(requireContext(), R.color.text_primary)
             )
         }
         
-        val selectedTab = when (selectedPeriod) {
-            Period.DAY -> binding.tabDay
-            Period.WEEK -> binding.tabWeek
-            Period.MONTH -> binding.tabMonth
-            Period.SIX_MONTH -> binding.tab6Month
-            Period.YEAR -> binding.tabYear
+        val selectedTab = when (period) {
+            ChartPeriod.DAY -> binding.tabDay
+            ChartPeriod.WEEK -> binding.tabWeek
+            ChartPeriod.MONTH -> binding.tabMonth
+            ChartPeriod.SIX_MONTH -> binding.tab6Month
+            ChartPeriod.YEAR -> binding.tabYear
         }
         
         selectedTab.setBackgroundResource(R.drawable.tab_selected)
@@ -143,13 +132,15 @@ class HomeFragment : Fragment() {
         
         binding.tvMotivation.text = getMotivationMessage(state.progressPercent)
         
+        updateTabsUI(state.selectedPeriod)
+        
         if (state.chartData.isNotEmpty()) {
-            updateChart(state.chartData)
+            updateChart(state.chartData, state.selectedPeriod)
             
-            val totalSteps = state.chartData.values.sum()
+            val totalSteps = state.chartData.sumOf { it.yValue }
             binding.tvRangeSteps.text = formatNumber(totalSteps.toInt())
             
-            binding.tvDateRange.text = getDateRangeText()
+            binding.tvDateRange.text = getDateRangeText(state.selectedPeriod)
         }
     }
     
@@ -167,18 +158,18 @@ class HomeFragment : Fragment() {
         }
     }
     
-    private fun getDateRangeText(): String {
+    private fun getDateRangeText(period: ChartPeriod): String {
         val calendar = Calendar.getInstance()
         val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
         
         val endDate = dateFormat.format(calendar.time)
         
-        val days = when (selectedPeriod) {
-            Period.DAY -> 0
-            Period.WEEK -> 6
-            Period.MONTH -> 29
-            Period.SIX_MONTH -> 179
-            Period.YEAR -> 364
+        val days = when (period) {
+            ChartPeriod.DAY -> 0
+            ChartPeriod.WEEK -> 6
+            ChartPeriod.MONTH -> 29
+            ChartPeriod.SIX_MONTH -> 179
+            ChartPeriod.YEAR -> 364
         }
         
         if (days == 0) {
@@ -231,35 +222,69 @@ class HomeFragment : Fragment() {
         }
     }
     
-    private fun updateChart(data: Map<Int, Long>) {
-        val entries = data.map { (day, steps) ->
-            Entry(day.toFloat(), steps.toFloat())
-        }.sortedBy { it.x }
+    private fun updateChart(chartEntries: List<ChartEntry>, period: ChartPeriod) {
+        android.util.Log.d("HomeFragment", "updateChart called with ${chartEntries.size} entries for $period")
         
-        if (entries.isEmpty()) return
+        if (chartEntries.isEmpty()) {
+            android.util.Log.w("HomeFragment", "No entries for chart, skipping")
+            return
+        }
+        
+        val entries = chartEntries.map { entry ->
+            Entry(entry.xValue, entry.yValue.toFloat())
+        }
+        
+        val labels = chartEntries.map { it.label }
+        binding.lineChart.xAxis.valueFormatter = object : ValueFormatter() {
+            override fun getFormattedValue(value: Float): String {
+                val index = value.toInt()
+                return if (index >= 0 && index < labels.size) labels[index] else ""
+            }
+        }
+        
+        val (yMax, labelCount) = when (period) {
+            ChartPeriod.DAY -> 200f to 5
+            ChartPeriod.WEEK -> 10000f to 5
+            ChartPeriod.MONTH -> 15000f to 4
+            ChartPeriod.SIX_MONTH -> 100000f to 5
+            ChartPeriod.YEAR -> 500000f to 5
+        }
+        
+        binding.lineChart.axisRight.apply {
+            axisMaximum = yMax
+            setLabelCount(labelCount, true)
+        }
         
         val dataSet = LineDataSet(entries, "Steps").apply {
             color = ContextCompat.getColor(requireContext(), R.color.chart_line)
-            lineWidth = 4f
-            setDrawCircles(false)
+            lineWidth = 3f
+            setDrawCircles(true)
+            circleRadius = 4f
+            setCircleColor(ContextCompat.getColor(requireContext(), R.color.chart_line))
+            setDrawCircleHole(false)
             setDrawValues(false)
             mode = LineDataSet.Mode.CUBIC_BEZIER
-            cubicIntensity = 0.15f
-            
+            cubicIntensity = 0.3f
             setDrawFilled(false)
         }
         
-        binding.lineChart.data = LineData(dataSet)
-        binding.lineChart.animateX(500)
-        binding.lineChart.invalidate()
+        binding.lineChart.apply {
+            data = LineData(dataSet)
+            xAxis.labelCount = minOf(labels.size, 7)
+            animateX(500)
+            invalidate()
+        }
+        
+        android.util.Log.d("HomeFragment", "Chart updated with labels: $labels, yMax: $yMax")
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        viewModel.refresh()
     }
     
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
-    }
-    
-    enum class Period {
-        DAY, WEEK, MONTH, SIX_MONTH, YEAR
     }
 }

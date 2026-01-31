@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.example.stepscape.data.local.StepDatabase
 import com.example.stepscape.data.local.dao.StepDao
+import com.example.stepscape.data.local.dao.StepSessionDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -12,7 +13,7 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 /**
- * database için hilt.
+ * Database için Hilt modülü.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -27,12 +28,20 @@ object DatabaseModule {
             context,
             StepDatabase::class.java,
             StepDatabase.DATABASE_NAME
-        ).build()
+        )
+            .fallbackToDestructiveMigration()
+            .build()
     }
 
     @Provides
     @Singleton
     fun provideStepDao(database: StepDatabase): StepDao {
         return database.stepDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideStepSessionDao(database: StepDatabase): StepSessionDao {
+        return database.stepSessionDao()
     }
 }

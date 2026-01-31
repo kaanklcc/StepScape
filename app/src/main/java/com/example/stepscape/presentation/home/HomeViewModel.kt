@@ -18,6 +18,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
@@ -73,7 +76,7 @@ class HomeViewModel @Inject constructor(
             
             if (hasPermissions) {
                 loadTodaySteps()
-                loadChartData(1)
+                loadChartData(ChartPeriod.DAY)
                 loadAndSyncSessions()
             } else {
                 _uiState.update { it.copy(isLoading = false) }
@@ -85,7 +88,7 @@ class HomeViewModel @Inject constructor(
         Log.d(TAG, "Permissions granted, loading data...")
         _uiState.update { it.copy(hasPermissions = true) }
         loadTodaySteps()
-        loadChartData(_uiState.value.selectedPeriod.days)
+        loadChartData(_uiState.value.selectedPeriod)
         loadAndSyncSessions()
     }
 
@@ -118,7 +121,6 @@ class HomeViewModel @Inject constructor(
             }
         }
     }
-
 
     private fun loadAndSyncSessions() {
         viewModelScope.launch {
@@ -156,6 +158,7 @@ class HomeViewModel @Inject constructor(
             }
         }
     }
+
     private suspend fun syncSessionsToFirebase(userId: String) {
         val unsyncedSessions = stepSessionDao.getUnsyncedSessionsByUser(userId)
         Log.d(TAG, "Syncing ${unsyncedSessions.size} unsynced sessions to Firebase...")
@@ -175,22 +178,115 @@ class HomeViewModel @Inject constructor(
     fun onPeriodSelected(period: ChartPeriod) {
         Log.d(TAG, "Period selected: ${period.label}")
         _uiState.update { it.copy(selectedPeriod = period) }
-        loadChartData(period.days)
+        loadChartData(period)
     }
 
-    fun loadChartData(days: Int) {
+    fun loadChartData(period: ChartPeriod) {
         viewModelScope.launch {
-            Log.d(TAG, "Loading chart data for $days days...")
+            Log.d(TAG, "Loading chart data for period: ${period.label}")
             try {
-                val stepsMap = getStepsForPeriodUseCase(days)
-                val chartData = stepsMap.mapKeys { it.key.dayOfMonth }
+                val chartEntries = when (period) {
+                    ChartPeriod.DAY -> loadDayChart()
+                    ChartPeriod.WEEK -> loadWeekChart()
+                    ChartPeriod.MONTH -> loadMonthChart()
+                    ChartPeriod.SIX_MONTH -> loadSixMonthChart()
+                    ChartPeriod.YEAR -> loadYearChart()
+                }
                 
-                Log.d(TAG, "Chart data loaded: $chartData")
-                _uiState.update { it.copy(chartData = chartData) }
+                Log.d(TAG, "Chart entries: ${chartEntries.size} points")
+                _uiState.update { it.copy(chartData = chartEntries, selectedPeriod = period) }
                 
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading chart data: ${e.message}")
+                e.printStackTrace()
             }
+        }
+    }
+
+    private suspend fun loadDayChart(): List<ChartEntry> {
+        val hourlyData = healthConnectManager.getStepsGroupedByHour()
+        return (0..23).map { hour ->
+            val label = String.format("%02d", hour)
+            ChartEntry(
+                xValue = hour.toFloat(),
+                yValue = hourlyData[hour] ?: 0L,
+                label = label
+            )
+        }
+    }
+
+    private suspend fun loadWeekChart(): List<ChartEntry> {
+        val stepsMap = getStepsForPeriodUseCase(7)
+        val today = LocalDate.now()
+        val dayFormatter = DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)
+        
+        return (6 downTo 0).mapIndexed { index, daysAgo ->
+            val date = today.minusDays(daysAgo.toLong())
+            ChartEntry(
+                xValue = index.toFloat(),
+                yValue = stepsMap[date] ?: 0L,
+                label = date.format(dayFormatter)
+            )
+        }
+    }
+
+    private suspend fun loadMonthChart(): List<ChartEntry> {
+        val stepsMap = getStepsForPeriodUseCase(30)
+        val today = LocalDate.now()
+        
+        // Son 30 günü 5'er günlük gruplarla göster (1, 5, 10, 15, 20, 25, 30)
+        val entries = mutableListOf<ChartEntry>()
+        for (i in 0..5) {
+            val daysAgo = 29 - (i * 5)
+            val date = today.minusDays(daysAgo.toLong())
+            entries.add(ChartEntry(
+                xValue = i.toFloat(),
+                yValue = stepsMap[date] ?: 0L,
+                label = date.dayOfMonth.toString()
+            ))
+        }
+        return entries
+    }
+
+    private suspend fun loadSixMonthChart(): List<ChartEntry> {
+        val stepsMap = getStepsForPeriodUseCase(180)
+        val today = LocalDate.now()
+        val monthFormatter = DateTimeFormatter.ofPattern("MMM", Locale.ENGLISH)
+        
+        return (5 downTo 0).mapIndexed { index, monthsAgo ->
+            val monthStart = today.minusMonths(monthsAgo.toLong()).withDayOfMonth(1)
+            val monthEnd = monthStart.plusMonths(1).minusDays(1)
+            
+            val monthSteps = stepsMap.filter { (date, _) ->
+                !date.isBefore(monthStart) && !date.isAfter(monthEnd)
+            }.values.sum()
+            
+            ChartEntry(
+                xValue = index.toFloat(),
+                yValue = monthSteps,
+                label = monthStart.format(monthFormatter)
+            )
+        }
+    }
+
+    private suspend fun loadYearChart(): List<ChartEntry> {
+        val stepsMap = getStepsForPeriodUseCase(365)
+        val today = LocalDate.now()
+        val monthFormatter = DateTimeFormatter.ofPattern("MMM", Locale.ENGLISH)
+        
+        return (11 downTo 0).mapIndexed { index, monthsAgo ->
+            val monthStart = today.minusMonths(monthsAgo.toLong()).withDayOfMonth(1)
+            val monthEnd = monthStart.plusMonths(1).minusDays(1)
+            
+            val monthSteps = stepsMap.filter { (date, _) ->
+                !date.isBefore(monthStart) && !date.isAfter(monthEnd)
+            }.values.sum()
+            
+            ChartEntry(
+                xValue = index.toFloat(),
+                yValue = monthSteps,
+                label = monthStart.format(monthFormatter)
+            )
         }
     }
 
@@ -198,7 +294,7 @@ class HomeViewModel @Inject constructor(
         Log.d(TAG, "Refreshing data...")
         _uiState.update { it.copy(isLoading = true) }
         loadTodaySteps()
-        loadChartData(_uiState.value.selectedPeriod.days)
+        loadChartData(_uiState.value.selectedPeriod)
         loadAndSyncSessions()
     }
 
