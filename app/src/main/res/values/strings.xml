@@ -7,6 +7,5 @@
     <string name="sign_in_with_google">Continue with Google</string>
     
     <!-- TODO: Replace with your Web Client ID from Firebase Console -->
-    <!-- See SETUP.md for instructions on how to get this value -->
     <string name="default_web_client_id">YOUR_WEB_CLIENT_ID.apps.googleusercontent.com</string>
 </resources>
